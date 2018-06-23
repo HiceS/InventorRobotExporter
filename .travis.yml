@@ -1,0 +1,13 @@
+
+before_install:
+
+git:
+  submodules: false
+
+matrix:
+  include:
+    - language: csharp
+      solution: BxDRobotExporter.sln
+      script:
+      - xbuild BxDRobotExporter.sln
+
