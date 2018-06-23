@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Text;
 
 public class Polynomial : BinaryRWObject
 {
@@ -9,7 +6,7 @@ public class Polynomial : BinaryRWObject
 
     public Polynomial()
     {
-        this.coeff = new float[0];
+        coeff = new float[0];
     }
 
     /// <summary>

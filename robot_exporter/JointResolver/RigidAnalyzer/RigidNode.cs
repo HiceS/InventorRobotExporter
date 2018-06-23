@@ -2,9 +2,8 @@
 using System.Text;
 using Inventor;
 using System;
-using OGLViewer;
 
-public class RigidNode : OGL_RigidNode 
+public class RigidNode : RigidNode_Base
 {
     public delegate void DeferredCalculation(RigidNode node);
 
@@ -39,7 +38,7 @@ public class RigidNode : OGL_RigidNode
         {
             foreach (ComponentOccurrence oc in group.occurrences)
             {
-                components.Add(oc.Name);
+                components.Add(oc.Name.ToLower());
             }
         }
         components.Sort();

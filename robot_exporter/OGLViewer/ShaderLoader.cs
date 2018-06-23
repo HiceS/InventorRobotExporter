@@ -46,13 +46,10 @@ namespace OGLViewer
 
             try
             {
-                //string myExeDir = (new FileInfo(System.Reflection.Assembly.GetEntryAssembly().Location)).DirectoryName;
+                string myExeDir = (new FileInfo(System.Reflection.Assembly.GetEntryAssembly().Location)).DirectoryName;
 
-                //StreamReader vertexSourceReader = new StreamReader(myExeDir + "\\Shaders\\shader.vert");
-                //StreamReader fragmentSourceReader = new StreamReader(myExeDir + "\\Shaders\\shader.frag");
-
-                StreamReader vertexSourceReader = new StreamReader(new MemoryStream(Properties.Resource1.VertShader));
-                StreamReader fragmentSourceReader = new StreamReader(new MemoryStream(Properties.Resource1.FragShader));
+                StreamReader vertexSourceReader = new StreamReader(myExeDir + "\\Shaders\\shader.vert");
+                StreamReader fragmentSourceReader = new StreamReader(myExeDir + "\\Shaders\\shader.frag");
 
                 vertexShaderSource = vertexSourceReader.ReadToEnd();
                 fragmentShaderSource = fragmentSourceReader.ReadToEnd();

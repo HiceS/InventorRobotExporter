@@ -111,8 +111,8 @@ public class Exporter
 
         return baseNode;
     }
-    
-    public static List<BXDAMesh> ExportMeshes(RigidNode_Base baseNode, bool useOCL = false)
+
+    public static List<BXDAMesh> ExportMeshes(RigidNode_Base baseNode, bool useOCL)
     {
         SurfaceExporter surfs = new SurfaceExporter();
         BXDJSkeleton.SetupFileNames(baseNode, true);
@@ -148,7 +148,7 @@ public class Exporter
                     Console.WriteLine("Output: " + output.meshes.Count + " meshes");
                     Console.WriteLine("Computing colliders...");
                     output.colliders.Clear();
-                    output.colliders.AddRange(ConvexHullCalculator.GetHull(output));
+                    output.colliders.AddRange(ConvexHullCalculator.GetHull(output, !group.hint.Convex, useOCL));
 
                     meshes.Add(output);
                 }
@@ -164,4 +164,5 @@ public class Exporter
 
         return meshes;
     }
+
 }

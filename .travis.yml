@@ -7,7 +7,7 @@ git:
 matrix:
   include:
     - language: csharp
-      solution: BxDRobotExporter.sln
+      solution: BxDRobotExporter/BxDRobotExporter.sln
       script:
-      - xbuild BxDRobotExporter.sln
+      - msbuild BxDRobotExporter/BxDRobotExporter.sln
 

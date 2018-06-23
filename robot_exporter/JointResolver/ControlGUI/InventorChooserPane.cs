@@ -18,7 +18,7 @@ public partial class InventorChooserPane : UserControl
         InitializeComponent();
     }
 
-    public void ButtonAdd_Click(object sender, EventArgs e)
+    private void buttonAdd_Click(object sender, EventArgs e)
     {
         if (InventorManager.Instance == null)
         {

@@ -1,0 +1,29 @@
+﻿<Properties>
+  <MonoDevelop.Ide.Workbench ActiveDocument="IO/BinaryRWObject.cs">
+    <Files>
+      <File FileName="IO/BXDJ/BXDJSkeleton.cs" Line="1" Column="1" />
+      <File FileName="IO/BXDA/BXDAMesh.cs" Line="18" Column="13" />
+      <File FileName="IO/BinaryRWObject.cs" Line="7" Column="18" />
+      <File FileName="Math/BXDBox.cs" Line="24" Column="19" />
+      <File FileName="Math/BXDQuaternion.cs" Line="1" Column="1" />
+      <File FileName="Math/BXDVector3.cs" Line="1" Column="1" />
+      <File FileName="Joints/Driver/JointDriverType.cs" Line="1" Column="1" />
+      <File FileName="Joints/SkeletalJoint_Base.cs" Line="1" Column="1" />
+      <File FileName="IO/BinaryArrayIO.cs" Line="8" Column="49" />
+      <File FileName="IO/BXDJ/BXDJReader_2_0.cs" Line="1" Column="1" />
+      <File FileName="Joints/Driver/JointDriverMeta.cs" Line="14" Column="125" />
+      <File FileName="IO/BXDIO.cs" Line="1" Column="1" />
+      <File FileName="Math/Polynomial.cs" Line="1" Column="1" />
+      <File FileName="Joints/AngularDOF.cs" Line="1" Column="1" />
+      <File FileName="Utilities/ArrayUtilities.cs" Line="1" Column="1" />
+      <File FileName="Utilities/FileUtilities.cs" Line="1" Column="1" />
+      <File FileName="Math/PhysicalProperties.cs" Line="3" Column="49" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+  <MultiItemStartupConfigurations />
+</Properties>

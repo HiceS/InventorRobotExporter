@@ -8,12 +8,11 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Inventor;
-using System.Diagnostics;
 
 public partial class NodeEditorPane : UserControl
 {
 
-    public List<RigidNode_Base> nodes;
+    List<RigidNode_Base> nodes;
 
     public NodeEditorPane()
     {
@@ -40,7 +39,7 @@ public partial class NodeEditorPane : UserControl
         if (listViewNodes.Items.Cast<ListViewItem>().FirstOrDefault(i => i.Tag != null && 
                                                                          ((RigidNode_Base)i.Tag).GetModelID() == node.GetModelID()) != null) return;
 
-        ListViewItem item = new ListViewItem(new string[] { (node.GetParent() != null) ? node.GetParent().ModelFileName : "N/A", node.ModelFileName, 
+        ListViewItem item = new ListViewItem(new string[] { (node.GetParent() != null)?node.GetParent().ModelFileName:"N/A", node.ModelFileName, 
                                                              "False", "False", "False" });
 
         item.Tag = node;
@@ -50,11 +49,6 @@ public partial class NodeEditorPane : UserControl
 
     private void listViewNodes_MouseDoubleClick(object sender, MouseEventArgs e)
     {
-        foreach(RigidNode_Base node in nodes)
-        {
-            Debug.WriteLine("Model Full Name: " + node.ModelFileName + "\nModel Full ID: " + node.ModelFullID);
-        }
-
         System.Drawing.Point clientPoint = e.Location;
         ListViewItem item = listViewNodes.GetItemAt(clientPoint.X, clientPoint.Y);
         if (item != null)

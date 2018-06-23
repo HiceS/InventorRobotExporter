@@ -29,7 +29,7 @@ public class InventorManager
     public bool loaded = false;
 
     public Application InventorInstance;
-    //private AssemblyDocument RobotDocument;
+    private AssemblyDocument RobotDocument;
 
     public _Document ActiveDocument
     {

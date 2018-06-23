@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-/// <summary>
+﻿/// <summary>
 /// Stores physical properties for a node or group of nodes.
 /// </summary>
 public struct PropertySet
@@ -144,9 +139,9 @@ public struct PropertySet
     /// <param name="frictionValue"></param>
     public PropertySet(string physicsGroupID, PropertySetCollider collider, int friction, float mass = 0.0f)
     {
-        this.PropertySetID = physicsGroupID;
-        this.Collider = collider;
-        this.Friction = friction;
-        this.Mass = mass;
+        PropertySetID = physicsGroupID;
+        Collider = collider;
+        Friction = friction;
+        Mass = mass;
     }
 }

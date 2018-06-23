@@ -30,9 +30,9 @@ public partial class ExporterForm : Form
     private TextWriter oldConsole;
     private TextboxWriter newConsole;
 
-    PluginSettingsForm.PluginSettingsValues ExporterSettings;
+    ExporterSettingsForm.ExporterSettingsValues ExporterSettings;
 
-    public ExporterForm(PluginSettingsForm.PluginSettingsValues settings)
+    public ExporterForm(ExporterSettingsForm.ExporterSettingsValues settings)
     {
         InitializeComponent();
 
@@ -42,6 +42,9 @@ public partial class ExporterForm : Form
 
         newConsole = new TextboxWriter(logText);
         Console.SetOut(newConsole);
+
+        logText.ForeColor = System.Drawing.Color.FromArgb((int)SynthesisGUI.ExporterSettings.generalTextColor);
+        logText.BackColor = System.Drawing.Color.FromArgb((int)SynthesisGUI.ExporterSettings.generalBackgroundColor);
 
         label1.Text = "";
         labelOverall.Text = "";
@@ -266,7 +269,7 @@ public partial class ExporterForm : Form
 
         try
         {
-            ExportedMeshes = Exporter.ExportMeshes(ExportedNode);
+            ExportedMeshes = Exporter.ExportMeshes(ExportedNode, ExporterSettings.meshUseOCL);
             ExportedNode = new OGLViewer.OGL_RigidNode(ExportedNode);
         }
         catch (COMException)
@@ -298,12 +301,14 @@ public partial class ExporterForm : Form
             if (!Visible) exporterThread.Abort();
         }
 
+        string logPath = SynthesisGUI.ExporterSettings.generalSaveLogLocation + "\\log_" + DateTime.Now.ToString("yyyyMMdd_HHmmss");
+
         Invoke((Action)delegate
         {
             nodeEditorPane1.Enabled = true;
             inventorChooserPane1.Enabled = true;
         });
-        Finish();
+        Finish(logPath);
     }
 
     #region Nested classes

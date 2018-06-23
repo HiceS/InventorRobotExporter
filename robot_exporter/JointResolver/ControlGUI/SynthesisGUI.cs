@@ -9,97 +9,121 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using EditorsLibrary;
-using JointResolver.ControlGUI;
 using OGLViewer;
 
-public delegate bool ValidationAction(RigidNode_Base baseNode, out string message);
-
-[Guid("ec18f8d4-c13e-4c86-8148-7414efb6e1e2")]
 public partial class SynthesisGUI : Form
 {
-    //public event Action ExportFinished;
-    //public void OnExportFinished()
-    //{
-    //    ExportFinished.Invoke();
-    //}
-
-    public class RuntimeMeta
-    {
-        public bool UseSettingsDir;
-        public string ActiveDir;
-        public string ActiveRobotName;
-
-        public static RuntimeMeta CreateRuntimeMeta()
-        {
-            return new RuntimeMeta
-            {
-                UseSettingsDir = true,
-                ActiveDir = null,
-                ActiveRobotName = null
-            };
-        }
-    }
-
-    public RuntimeMeta RMeta = RuntimeMeta.CreateRuntimeMeta();
 
     public static SynthesisGUI Instance;
 
-    public static PluginSettingsForm.PluginSettingsValues PluginSettings;
-
-    public Form BXDAViewerPaneForm = new Form
-    {
-        FormBorderStyle = FormBorderStyle.None
-    };
-    public Form JointPaneForm = new Form
-    {
-        FormBorderStyle = FormBorderStyle.None
-    };
+    public static ExporterSettingsForm.ExporterSettingsValues ExporterSettings;
+    public static ViewerSettingsForm.ViewerSettingsValues ViewerSettings;
 
     public RigidNode_Base SkeletonBase = null;
     public List<BXDAMesh> Meshes = null;
 
-    private LiteExporterForm liteExporter;
+    private ExporterForm exporter;
+
+    /// <summary>
+    /// The last path that was saved to/opened from
+    /// </summary>
+    private string lastDirPath = null;
 
     static SynthesisGUI()
     {
+        BXDSettings.Load();
+        object exportSettings = BXDSettings.Instance.GetSettingsObject("Exporter Settings");
+        object viewSettings = BXDSettings.Instance.GetSettingsObject("Viewer Settings");
+
+        ExporterSettings = (exportSettings != null) ?
+                           (ExporterSettingsForm.ExporterSettingsValues)exportSettings : ExporterSettingsForm.GetDefaultSettings();
+        ViewerSettings = (viewSettings != null) ? (ViewerSettingsForm.ViewerSettingsValues)viewSettings : ViewerSettingsForm.GetDefaultSettings();
     }
 
-    public SynthesisGUI(bool MakeOwners = false)
+    public SynthesisGUI()
     {
         InitializeComponent();
 
         Instance = this;
 
-        bxdaEditorPane1.Units = "lbs";
-        BXDAViewerPaneForm.Controls.Add(bxdaEditorPane1);
-        if (MakeOwners) BXDAViewerPaneForm.Owner = this;
-        BXDAViewerPaneForm.FormClosing += Generic_FormClosing;
+        robotViewer1.LoadSettings(ViewerSettings);
+        bxdaEditorPane1.Units = ViewerSettings.modelUnits;
 
-        JointPaneForm.Controls.Add(jointEditorPane1);
-        if (MakeOwners) JointPaneForm.Owner = this;
-        JointPaneForm.FormClosing += Generic_FormClosing;
-
-
-        RigidNode_Base.NODE_FACTORY = delegate (Guid guid)
+        RigidNode_Base.NODE_FACTORY = delegate(Guid guid)
         {
             return new OGL_RigidNode(guid);
         };
 
-        settingsExporter.Click += SettingsExporter_OnClick;
+        fileNew.Click += new System.EventHandler(delegate(object sender, System.EventArgs e)
+        {
+            SetNew();
+        });
+        fileLoad.Click += new System.EventHandler(delegate(object sender, System.EventArgs e)
+        {
+            LoadFromInventor();
+        });
+        fileOpen.Click += new System.EventHandler(delegate(object sender, System.EventArgs e)
+        {
+            OpenExisting();
+        });
+        fileSave.Click += new System.EventHandler(delegate(object sender, System.EventArgs e)
+        {
+            SaveRobot(false);
+        });
+        fileSaveAs.Click += new System.EventHandler(delegate(object sender, System.EventArgs e)
+        {
+            SaveRobot(true);
+        });
+        fileExit.Click += new System.EventHandler(delegate(object sender, System.EventArgs e)
+        {
+            Close();
+        });
 
-        Shown += SynthesisGUI_Shown;
+        settingsExporter.Click += new System.EventHandler(delegate(object sender, System.EventArgs e)
+        {
+            var defaultValues = BXDSettings.Instance.GetSettingsObject("Exporter Settings");
 
-        FormClosing += new FormClosingEventHandler(delegate (object sender, FormClosingEventArgs e)
+            ExporterSettingsForm eSettingsForm = new ExporterSettingsForm((defaultValues != null) ? (ExporterSettingsForm.ExporterSettingsValues) defaultValues :
+                                                                                             ExporterSettingsForm.GetDefaultSettings());
+
+            eSettingsForm.ShowDialog(this);
+
+            BXDSettings.Instance.AddSettingsObject("Exporter Settings", eSettingsForm.values);
+            ExporterSettings = eSettingsForm.values;
+        });
+        settingsViewer.Click += new System.EventHandler(delegate(object sender, System.EventArgs e)
+        {
+            var defaultValues = BXDSettings.Instance.GetSettingsObject("Viewer Settings");
+
+            ViewerSettingsForm vSettingsForm = new ViewerSettingsForm((defaultValues != null) ? (ViewerSettingsForm.ViewerSettingsValues) defaultValues : 
+                                                                                    ViewerSettingsForm.GetDefaultSettings());
+
+            vSettingsForm.ShowDialog(this);
+
+            BXDSettings.Instance.AddSettingsObject("Viewer Settings", vSettingsForm.values);
+            ViewerSettings = vSettingsForm.values;
+
+            robotViewer1.LoadSettings(ViewerSettings);
+            bxdaEditorPane1.Units = ViewerSettings.modelUnits;
+        });
+
+        helpAbout.Click += new System.EventHandler(delegate(object sender, System.EventArgs e)
+        {
+            AboutDialog about = new AboutDialog();
+            about.ShowDialog(this);
+        });
+
+        this.FormClosing += new FormClosingEventHandler(delegate(object sender, FormClosingEventArgs e)
         {
             if (SkeletonBase != null && !WarnUnsaved()) e.Cancel = true;
+            else BXDSettings.Save();
+
             InventorManager.ReleaseInventor();
         });
 
-        jointEditorPane1.ModifiedJoint += delegate (List<RigidNode_Base> nodes)
+        jointEditorPane1.ModifiedJoint += delegate(List<RigidNode_Base> nodes)
         {
 
             if (nodes == null || nodes.Count == 0) return;
@@ -111,7 +135,10 @@ public partial class SynthesisGUI : Form
                     node.GetSkeletalJoint().cDriver.GetInfo<WheelDriverMeta>().radius == 0 &&
                     node is OGL_RigidNode)
                 {
-                    (node as OGL_RigidNode).GetWheelInfo(out float radius, out float width, out BXDVector3 center);
+                    float radius, width;
+                    BXDVector3 center;
+
+                    (node as OGL_RigidNode).GetWheelInfo(out radius, out width, out center);
 
                     WheelDriverMeta wheelDriver = node.GetSkeletalJoint().cDriver.GetInfo<WheelDriverMeta>();
                     wheelDriver.center = center;
@@ -123,7 +150,12 @@ public partial class SynthesisGUI : Form
             }
         };
 
+
+        jointEditorPane1.SelectedJoint += robotViewer1.SelectJoints;
         jointEditorPane1.SelectedJoint += bxdaEditorPane1.SelectJoints;
+
+        robotViewer1.NodeSelected += jointEditorPane1.AddSelection;
+        robotViewer1.NodeSelected += bxdaEditorPane1.AddSelection;
 
         bxdaEditorPane1.NodeSelected += (BXDAMesh mesh) =>
             {
@@ -132,23 +164,19 @@ public partial class SynthesisGUI : Form
 
                 jointEditorPane1.AddSelection(nodes[Meshes.IndexOf(mesh)], true);
             };
-    }
 
-    private void Generic_FormClosing(object sender, FormClosingEventArgs e)
-    {
-        foreach (Form f in OwnedForms)
+        bxdaEditorPane1.NodeSelected += (BXDAMesh mesh) =>
         {
-            if(f.Visible)
-                f.Close();
-        }
-        Close();
+            List<RigidNode_Base> nodes = new List<RigidNode_Base>();
+            SkeletonBase.ListAllNodes(nodes);
+
+            robotViewer1.SelectJoints(nodes.GetRange(Meshes.IndexOf(mesh), 1));
+        };
     }
 
-    private void SynthesisGUI_Shown(object sender, EventArgs e)
+    ~SynthesisGUI()
     {
-        Hide();
-        BXDAViewerPaneForm.Show();
-        JointPaneForm.Show();
+
     }
 
     public void SetNew()
@@ -157,27 +185,24 @@ public partial class SynthesisGUI : Form
 
         SkeletonBase = null;
         Meshes = null;
+
         ReloadPanels();
     }
 
     /// <summary>
     /// Export a robot from Inventor
     /// </summary>
-    public bool ExportMeshes(bool warnUnsaved = false)
+    public void LoadFromInventor()
     {
-        if (SkeletonBase != null && warnUnsaved && !WarnUnsaved()) return false;
+        if (SkeletonBase != null && !WarnUnsaved()) return;
 
         try
         {
             var exporterThread = new Thread(() =>
             {
-#if LITEMODE
-                liteExporter = new LiteExporterForm();
-                liteExporter.ShowDialog();
-#else
-                exporter = new ExporterForm(PluginSettings);
+                exporter = new ExporterForm(ExporterSettings);
+
                 exporter.ShowDialog();
-#endif
             });
 
             exporterThread.SetApartmentState(ApartmentState.STA);
@@ -187,34 +212,21 @@ public partial class SynthesisGUI : Form
 
             GC.Collect();
         }
-        catch (InvalidComObjectException)
+        catch (System.Runtime.InteropServices.InvalidComObjectException)
         {
-        }
-        catch (TaskCanceledException)
-        {
-            return true;
         }
         catch (Exception e)
         {
             MessageBox.Show(e.Message);
-            return false;
+            return;
         }
-
-        List<RigidNode_Base> nodes = SkeletonBase.ListAllNodes();
-        for (int i = 0; i < Meshes.Count; i++)
-        {
-            ((OGL_RigidNode)nodes[i]).loadMeshes(Meshes[i]);
-        }
-        RobotSaveAs(NameRobotForm.NameMode.Initial);
 
         ReloadPanels();
-        return true;
     }
 
     /// <summary>
-    /// Open a previously exported robot. 
+    /// Open a previously exported robot
     /// </summary>
-    /// <param name="validate">If it is not null, this will validate the open inventor assembly.</param>
     public void OpenExisting()
     {
         if (SkeletonBase != null && !WarnUnsaved()) return;
@@ -227,11 +239,10 @@ public partial class SynthesisGUI : Form
         {
             List<RigidNode_Base> nodes = new List<RigidNode_Base>();
             SkeletonBase = BXDJSkeleton.ReadSkeleton(dirPath + "\\skeleton.bxdj");
-
             SkeletonBase.ListAllNodes(nodes);
 
             Meshes = new List<BXDAMesh>();
-
+            
             foreach (RigidNode_Base n in nodes)
             {
                 BXDAMesh mesh = new BXDAMesh();
@@ -245,164 +256,115 @@ public partial class SynthesisGUI : Form
 
                 Meshes.Add(mesh);
             }
-            for (int i = 0; i < Meshes.Count; i++)
-            {
-                ((OGL_RigidNode)nodes[i]).loadMeshes(Meshes[i]);
-            }
         }
         catch (Exception e)
         {
-            MessageBox.Show(e.ToString());
+            MessageBox.Show(e.Message);
         }
 
+        lastDirPath = dirPath;
 
         ReloadPanels();
     }
 
     /// <summary>
-    /// Open a previously exported robot. 
+    /// Save all changes to an open robot
     /// </summary>
-    /// <param name="validate">If it is not null, this will validate the open inventor assembly.</param>
-    public bool OpenExisting(ValidationAction validate, bool warnUnsaved = false)
+    /// <param name="isSaveAs">If this is a "Save As" operation</param>
+    /// <returns>If the save operation succeeded</returns>
+    public bool SaveRobot(bool isSaveAs)
     {
+        if (SkeletonBase == null || Meshes == null) return false;
 
-        if (SkeletonBase != null && warnUnsaved && !WarnUnsaved()) return false;
+        string dirPath = lastDirPath;
 
-        string dirPath = OpenFolderPath();
-
+        if (dirPath == null || isSaveAs) dirPath = OpenFolderPath();
         if (dirPath == null) return false;
+
+        if (File.Exists(dirPath + "\\skeleton.bxdj"))
+        {
+            if (dirPath != lastDirPath && !WarnOverwrite()) return false;
+        }
 
         try
         {
-            List<RigidNode_Base> nodes = new List<RigidNode_Base>();
-            SkeletonBase = BXDJSkeleton.ReadSkeleton(dirPath + "\\skeleton.bxdj");
+            BXDJSkeleton.WriteSkeleton(dirPath + "\\skeleton.bxdj", SkeletonBase);
 
-            if (validate != null)
+            for (int i = 0; i < Meshes.Count; i++)
             {
-                if (!validate(SkeletonBase, out string message))
-                {
-                    while (true)
-                    {
-                        DialogResult result = MessageBox.Show(message, "Assembly Validation", MessageBoxButtons.AbortRetryIgnore, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
-                        if (result == DialogResult.Retry)
-                            continue;
-                        if (result == DialogResult.Abort)
-                        {
-                            return false;
-                        }
-                        break;
-                    }
-                }
-                #region DEBUG
-#if DEBUG
-                else
-                {
-                    MessageBox.Show(message);
-                }
-#endif 
-                #endregion
+                Meshes[i].WriteToFile(dirPath + "\\node_" + i + ".bxda");
             }
 
-            SkeletonBase.ListAllNodes(nodes);
+            /*
+             * The commented code below is for testing purposes.
+             * To determine if the reading/writing process runs
+             * without loss of data, compare the text of skeleton.bxdj
+             * and skeleton2.bxdj. If they are equal, no data was lost.
+             */
 
-            Meshes = new List<BXDAMesh>();
+            /** /
+            RigidNode_Base testRigidNode = BXDJSkeleton.ReadSkeleton(dirPath + "\\skeleton.bxdj");
 
-            foreach (RigidNode_Base n in nodes)
-            {
-                BXDAMesh mesh = new BXDAMesh();
-                mesh.ReadFromFile(dirPath + "\\" + n.ModelFileName);
-
-                if (!n.GUID.Equals(mesh.GUID))
-                {
-                    MessageBox.Show(n.ModelFileName + " has been modified.", "Could not load mesh.");
-                    return false;
-                }
-
-                Meshes.Add(mesh);
-            }
+            BXDJSkeleton.WriteSkeleton(dirPath + "\\skeleton2.bxdj", testRigidNode);
+            /**/
         }
         catch (Exception e)
         {
-            MessageBox.Show(e.ToString());
+            MessageBox.Show("Couldn't save robot \n" + e.Message);
+            return false;
         }
 
-        RMeta.UseSettingsDir = false;
-        RMeta.ActiveDir = dirPath;
-        RMeta.ActiveRobotName = dirPath.Split(new char[] { '\\' }, StringSplitOptions.RemoveEmptyEntries).Last();
+        MessageBox.Show("Saved!");
 
-        ReloadPanels();
+        lastDirPath = dirPath;
+
         return true;
     }
 
     /// <summary>
-    /// Saves the robot to the directory it was loaded from or the default directory
+    /// Reset the <see cref="ExporterProgressWindow"/> progress bar
     /// </summary>
-    /// <returns></returns>
-    public bool RobotSave(bool silent = false)
+    public void ExporterReset()
     {
-        try
-        {
-            if (!Directory.Exists(PluginSettings.GeneralSaveLocation + "\\" + RMeta.ActiveRobotName))
-                Directory.CreateDirectory(PluginSettings.GeneralSaveLocation + "\\" + RMeta.ActiveRobotName);
-            BXDJSkeleton.SetupFileNames(SkeletonBase);
-            BXDJSkeleton.WriteSkeleton((RMeta.UseSettingsDir && RMeta.ActiveDir != null) ? RMeta.ActiveDir : PluginSettings.GeneralSaveLocation + "\\" + RMeta.ActiveRobotName + "\\skeleton.bxdj", SkeletonBase);
-            for (int i = 0; i < Meshes.Count; i++)
-            {
-                Meshes[i].WriteToFile((RMeta.UseSettingsDir && RMeta.ActiveDir != null) ? RMeta.ActiveDir : PluginSettings.GeneralSaveLocation + "\\" + RMeta.ActiveRobotName + "\\node_" + i + ".bxda");
-            }
+        exporter.ResetProgress();
+    }
 
-            for (int i = 0; i < Meshes.Count; i++)
-            {
-                Meshes[i].WriteToFile((RMeta.UseSettingsDir && RMeta.ActiveDir != null) ? RMeta.ActiveDir : PluginSettings.GeneralSaveLocation + "\\" + RMeta.ActiveRobotName + "\\node_" + i + ".bxda");
-            }
-            if(!silent)
-                MessageBox.Show("Saved");
-            return true;
-        }
-        catch (Exception e)
-        {
-            //TODO: Create a form that displays a simple error message with an option to expand it and view the exception info
-            MessageBox.Show("Error saving robot: " + e.Message, "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            return false;
-        }
+    public void ExporterOverallReset()
+    {
+        exporter.ResetOverall();
     }
 
     /// <summary>
-    /// Saves the robot to the currently set robot directory.
+    /// Set the length of the <see cref="ExporterProgressWindow"/> progress bar
     /// </summary>
-    /// <param name="robotName"></param>
-    public bool RobotSaveAs(NameRobotForm.NameMode mode = NameRobotForm.NameMode.SaveAs)
+    /// <param name="percentLength">The length of the bar in percentage points (0%-100%)</param>
+    public void ExporterSetProgress(double percentLength)
     {
-        if (NameRobotForm.NameRobot(out string robotName, mode) == DialogResult.OK)
-        {
-            try
-            {
-                if (!Directory.Exists(PluginSettings.GeneralSaveLocation + "\\" + robotName))
-                    Directory.CreateDirectory(PluginSettings.GeneralSaveLocation + "\\" + robotName);
+        exporter.AddProgress((int) Math.Floor(percentLength) - exporter.GetProgress());
+    }
 
-                BXDJSkeleton.WriteSkeleton(PluginSettings.GeneralSaveLocation + "\\" + robotName + "\\skeleton.bxdj", SkeletonBase);
+    /// <summary>
+    /// Set the <see cref="ExporterProgressWindow"/> text after "Progress:"
+    /// </summary>
+    /// <param name="text">The text to add</param>
+    public void ExporterSetSubText(string text)
+    {
+        exporter.SetProgressText(text);
+    }
 
-                for (int i = 0; i < Meshes.Count; i++)
-                {
-                    Meshes[i].WriteToFile(PluginSettings.GeneralSaveLocation + "\\" + robotName + "\\node_" + i + ".bxda");
-                }
+    public void ExporterSetMeshes(int num)
+    {
+        exporter.SetNumMeshes(num);
+    }
 
-                MessageBox.Show("Saved");
+    public void ExporterStepOverall()
+    {
+        exporter.AddOverallStep();
+    }
 
-                RMeta.UseSettingsDir = true;
-                RMeta.ActiveDir = null;
-                RMeta.ActiveRobotName = robotName;
-
-                return true;
-            }
-            catch (Exception e)
-            {
-                //TODO: Create a form that displays a simple error message with an option to expand it and view the exception info
-                MessageBox.Show("Error saving robot: " + e.Message, "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return false;
-            }
-        }
-        return false;
+    public void ExporterSetOverallText(string text)
+    {
+        exporter.SetOverallText(text);
     }
 
     /// <summary>
@@ -415,10 +377,9 @@ public partial class SynthesisGUI : Form
 
         var dialogThread = new Thread(() =>
         {
-            FolderBrowserDialog openDialog = new FolderBrowserDialog()
-            {
-                Description = "Select a Robot Folder"
-            };
+            FolderBrowserDialog openDialog = new FolderBrowserDialog();
+            openDialog.ShowNewFolderButton = true;
+            openDialog.Description = "Choose Robot Folder";
             DialogResult openResult = openDialog.ShowDialog();
 
             if (openResult == DialogResult.OK) dirPath = openDialog.SelectedPath;
@@ -447,13 +408,13 @@ public partial class SynthesisGUI : Form
     /// Warn the user that they are about to exit without unsaved work
     /// </summary>
     /// <returns>Whether the user wishes to continue without saving</returns>
-    public bool WarnUnsaved()
+    private bool WarnUnsaved()
     {
         DialogResult saveResult = MessageBox.Show("Do you want to save your work?", "Save", MessageBoxButtons.YesNoCancel);
 
         if (saveResult == DialogResult.Yes)
         {
-            return RobotSave();
+            return SaveRobot(false);
         }
         else if (saveResult == DialogResult.No)
         {
@@ -468,10 +429,11 @@ public partial class SynthesisGUI : Form
     /// <summary>
     /// Reload all panels with newly loaded robot data
     /// </summary>
-    public void ReloadPanels()
+    private void ReloadPanels()
     {
         jointEditorPane1.SetSkeleton(SkeletonBase);
         bxdaEditorPane1.loadModel(Meshes);
+        robotViewer1.LoadModel(SkeletonBase, Meshes);
     }
 
     protected override void OnResize(EventArgs e)
@@ -484,144 +446,9 @@ public partial class SynthesisGUI : Form
         ResumeLayout();
     }
 
-    /// <summary>
-    /// Opens the <see cref="PluginSettingsForm"/> form
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    public void SettingsExporter_OnClick(object sender, System.EventArgs e)
+    private void helpTutorials_Click(object sender, EventArgs e)
     {
-        try
-        {
-            //TODO: Implement Value saving and loading
-            PluginSettingsForm eSettingsForm = new PluginSettingsForm();
-    
-            eSettingsForm.ShowDialog();
-    
-            //BXDSettings.Instance.AddSettingsObject("Plugin Settings", ExporterSettingsForm.values);
-            PluginSettings = PluginSettingsForm.Values;
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(ex.ToString());
-            throw;
-        }
+        Process.Start("http://bxd.autodesk.com/synthesis/?page=Tutorials");
     }
-
-    /// <summary>
-    /// Runs the standalone Robot Viewer with and tells it to view the current robot
-    /// </summary>
-    /// <param name="settingsDir"></param>
-    public void PreviewRobot(string settingsDir = null)
-    {
-        if(RMeta.ActiveDir != null)
-        {
-            Process.Start(Utilities.VIEWER_PATH, "-path \"" + RMeta.ActiveDir + "\"");
-        }
-        else
-        {
-            Process.Start(Utilities.VIEWER_PATH, "-path \"" + settingsDir + "\\" + RMeta.ActiveRobotName + "\"");
-        }
-    }
-
-    /// <summary>
-    /// Used to load <see cref="BXDAMesh"/>es into their corresponding <see cref="OGL_RigidNode"/>s
-    /// </summary>
-    public void LoadMeshes()
-    {
-        List<RigidNode_Base> nodes = SkeletonBase.ListAllNodes();
-        for (int i = 0; i < Meshes.Count; i++)
-        {
-            ((OGL_RigidNode)nodes[i]).loadMeshes(Meshes[i]);
-        }
-    }
-
-    /// <summary>
-    /// Merges a node into the parent. Used during the one click export and the wizard.
-    /// </summary>
-    /// <param name="node"></param>
-    public void MergeNodeIntoParent(RigidNode_Base node)
-    {
-        if (node.GetParent() == null)
-            throw new ArgumentException("ERROR: Root node passed to MergeNodeIntoParent(RigidNode_Base)", "node");
-
-        node.GetParent().ModelFullID += node.ModelFullID;
-
-        //Get meshes for each node
-        var childMesh = GetMesh(node);
-        var parentMesh = GetMesh(node.GetParent());
-
-        //Merge submeshes and colliders
-        parentMesh.meshes.AddRange(childMesh.meshes);
-        parentMesh.colliders.AddRange(childMesh.colliders);
-
-        //Merge physics
-        parentMesh.physics.Add(childMesh.physics.mass, childMesh.physics.centerOfMass);
-        
-        //Remove node from the children of its parent
-        node.GetParent().Children.Remove(node.GetSkeletalJoint());
-        Meshes.Remove(childMesh);
-    }
-
-    private BXDAMesh GetMesh(RigidNode_Base node)
-    {
-        return Meshes[SkeletonBase.ListAllNodes().IndexOf(node)];
-    }
-
-    #region OUTDATED EXPORTER METHODS
-    /// <summary>
-    /// Reset the <see cref="ExporterProgressWindow"/> progress bar
-    /// </summary>
-    public void ExporterReset()
-    {
-        exporter.ResetProgress();
-    }
-
-    public void ExporterOverallReset()
-    {
-        exporter.ResetOverall();
-    }
-
-    /// <summary>
-    /// Set the length of the <see cref="ExporterProgressWindow"/> progress bar
-    /// </summary>
-    /// <param name="percentLength">The length of the bar in percentage points (0%-100%)</param>
-    public void ExporterSetProgress(double percentLength)
-    {
-        exporter.AddProgress((int)Math.Floor(percentLength) - exporter.GetProgress());
-    }
-
-    /// <summary>
-    /// Set the <see cref="ExporterProgressWindow"/> text after "Progress:"
-    /// </summary>
-    /// <param name="text">The text to add</param>
-    public void ExporterSetSubText(string text)
-    {
-        exporter.SetProgressText(text);
-    }
-
-    public void ExporterSetMeshes(int num)
-    {
-        exporter.SetNumMeshes(num);
-    }
-
-    public void ExporterStepOverall()
-    {
-        exporter.AddOverallStep();
-    }
-
-    public void ExporterSetOverallText(string text)
-    {
-        exporter.SetOverallText(text);
-    }
-
-    private ExporterForm exporter = null;
-
-    private void HelpTutorials_Click(object sender, EventArgs e)
-    {
-        Process.Start("http://bxd.autodesk.com/synthesis/tutorials-robot.html");
-    }
-
-    #endregion
 
 }

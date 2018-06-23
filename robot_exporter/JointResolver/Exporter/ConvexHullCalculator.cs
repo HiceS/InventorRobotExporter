@@ -8,25 +8,16 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Inventor;
 using System.Collections;
 using System.Diagnostics;
-using MIConvexHull;
+using ConvexLibraryWrapper;
 
 /// <summary>
 /// Computes and simplifies convex hulls for BXDA meshes.
 /// </summary>
 public class ConvexHullCalculator
 {
-    private class HullVertex : IVertex
-    {
-        public double[] Position { get; set; }
-
-        public HullVertex(double x, double y, double z)
-        {
-            Position = new double[] { x, y, z };
-        }
-    }
-
     private const float EPSILON = 0.5f; // Magic unicorns here.  < 0.5cm = who cares
 
     /// <summary>
@@ -106,9 +97,7 @@ public class ConvexHullCalculator
     private static void Simplify(ref float[] verts, ref uint vertCount, ref uint[] inds, ref uint trisCount)
     {
         // Setup edge relations, compute min edge lengths...
-
         List<SimplificationVertex> simplVerts = new List<SimplificationVertex>();
-
         for (int i = 0; i < vertCount; i++)
         {
             simplVerts.Add(new SimplificationVertex(verts[i * 3], verts[i * 3 + 1], verts[i * 3 + 2]));
@@ -354,245 +343,187 @@ public class ConvexHullCalculator
         return sub;
     }
 
-    ///// <summary>
-    ///// Computes a convex hull, or convex hull set for the given meshes.
-    ///// </summary>
-    ///// <param name="mesh">Mesh to compute for</param>
-    ///// <param name="decompose">If a set of convex hulls is required</param>
-    ///// <returns>The resulting list of convex hulls.</returns>
-    //public static List<BXDAMesh.BXDASubMesh> GetHull(BXDAMesh bMesh, bool decompose = false, bool OCL = false)
-    //{
-    //    int vertCount = 0;
-    //    int indexCount = 0;
-    //    foreach (BXDAMesh.BXDASubMesh mesh in bMesh.meshes)
-    //    {
-    //        vertCount += mesh.verts.Length;
-    //        foreach (BXDAMesh.BXDASurface surface in mesh.surfaces)
-    //        {
-    //            //Get total number of indicies in overall mesh.
-    //            indexCount += surface.indicies.Length;
-    //        }
-    //    }
-    //    if (vertCount <= 0)
-    //    {
-    //        throw new InvalidOperationException("There isn't any mesh to operate on!");
-    //    }
-    //    float[] copy = new float[vertCount];
-    //    uint[] index = new uint[indexCount];
-    //    vertCount = 0;
-    //    indexCount = 0;
-    //    int totalChecks = 0;
-    //    int onePercent = Math.Max(1, (copy.Length / 3) / 100);
-    //    SynthesisGUI.Instance.ExporterReset();
-    //    foreach (BXDAMesh.BXDASubMesh mesh in bMesh.meshes)
-    //    {
-    //        int[] subIndices = new int[mesh.verts.Length / 3];
-    //        int addedVerts = 0;
-    //        for (int i = 0; i < mesh.verts.Length; i += 3)
-    //        {
-    //            totalChecks++;
-    //            if (totalChecks % onePercent == 0)
-    //            {
-    //                //Console.Write("Cleaning " + totalChecks + "/" + (copy.Length / 3) + "  " + ((int) (totalChecks * 3 / (float) copy.Length * 10000f) / 100f) + "%");
-    //                double totalProgress = ((double)totalChecks / ((double)copy.Length / 3.0)) * 100.0;
-    //                SynthesisGUI.Instance.ExporterSetSubText(String.Format("Clean {1} / {2}", Math.Round(totalProgress, 2), totalChecks, copy.Length / 3));
-    //                SynthesisGUI.Instance.ExporterSetProgress(totalProgress);
-    //            }
-    //            //Copy all the mesh vertices over, starting at the end of the last mesh copied.
-    //            for (int j = 0; j < (vertCount + addedVerts) * 3; j += 3)
-    //            {
-    //                if (Math.Abs(mesh.verts[i] - copy[j]) < EPSILON &&
-    //                    Math.Abs(mesh.verts[i + 1] - copy[j + 1]) < EPSILON &&
-    //                    Math.Abs(mesh.verts[i + 2] - copy[j + 2]) < EPSILON)
-    //                {
-    //                    subIndices[i / 3] = (j / 3) + 1;// Add one so we can just use the pre-zeroed memory.
-    //                    break;
-    //                }
-    //            }
-    //            if (subIndices[i / 3] == 0)
-    //            {
-    //                subIndices[i / 3] = vertCount + addedVerts + 1;
-    //                int offset = (vertCount + addedVerts) * 3;
-    //                addedVerts++;
-    //                copy[offset] = (float)mesh.verts[i];
-    //                copy[offset + 1] = (float)mesh.verts[i + 1];
-    //                copy[offset + 2] = (float)mesh.verts[i + 2];
-    //            }
-    //            else
-    //            {
-    //                // Which one is farther from the COM
-    //                int offset = (subIndices[i / 3] - 1) * 3;
-    //                float dx = (float)mesh.verts[i] - bMesh.physics.centerOfMass.x;
-    //                float dy = (float)mesh.verts[i + 1] - bMesh.physics.centerOfMass.y;
-    //                float dz = (float)mesh.verts[i + 2] - bMesh.physics.centerOfMass.z;
-    //                float dXC = copy[offset] - bMesh.physics.centerOfMass.x;
-    //                float dYC = copy[offset] - bMesh.physics.centerOfMass.y;
-    //                float dZC = copy[offset] - bMesh.physics.centerOfMass.z;
-    //                if ((dx * dx + dy * dy + dz * dz) > (dXC * dXC + dYC * dYC + dZC * dZC))
-    //                {
-    //                    copy[offset] = (float)mesh.verts[i];
-    //                    copy[offset + 1] = (float)mesh.verts[i + 1];
-    //                    copy[offset + 2] = (float)mesh.verts[i + 2];
-    //                }
-    //            }
-    //        }
-
-    //        foreach (BXDAMesh.BXDASurface surface in mesh.surfaces)
-    //        {
-    //            int addedInds = 0;
-    //            for (int i = 0; i < surface.indicies.Length; i += 3)
-    //            {
-    //                if (subIndices[surface.indicies[i]] != subIndices[surface.indicies[i + 1]] &&
-    //                    subIndices[surface.indicies[i + 1]] != subIndices[surface.indicies[i + 2]] &&
-    //                    subIndices[surface.indicies[i + 2]] != subIndices[surface.indicies[i]])
-    //                {
-    //                    index[indexCount + i] = (uint)subIndices[surface.indicies[i]] - 1;
-    //                    index[indexCount + i + 1] = (uint)subIndices[surface.indicies[i + 1]] - 1;
-    //                    index[indexCount + i + 2] = (uint)subIndices[surface.indicies[i + 2]] - 1;
-    //                    addedInds += 3;
-    //                }
-    //            }
-
-    //            indexCount += addedInds;
-    //        }
-    //        vertCount += addedVerts;
-    //    }
-
-    //    SynthesisGUI.Instance.ExporterSetSubText("Calculating colliders");
-
-    //    IVHACD decomposer = new IVHACD();
-    //    ConvexLibraryWrapper.Parameters parameters = new ConvexLibraryWrapper.Parameters();
-    //    if (!decompose)
-    //    {
-    //        parameters.m_depth = 1;
-    //        parameters.m_concavity = 1;
-    //    }
-    //    if (OCL)
-    //    {
-    //        Console.WriteLine("Using OpenCL acceleration");
-
-    //        try
-    //        {
-    //            parameters.m_oclAcceleration = 1;
-    //            decomposer.OCLInit(parameters);
-    //        }
-    //        catch (DllNotFoundException e)
-    //        {
-    //            Console.WriteLine(e.Message);
-    //            OCL = false;
-    //        }
-    //    }
-
-    //    bool decomposeResult = false;
-
-    //    Thread t = new Thread(() =>
-    //        {
-    //            decomposeResult = decomposer.Compute(copy, 3, (uint)copy.Length / 3,
-    //                                                 Array.ConvertAll<uint, int>(index, (uint ui) => (int)ui), 3, (uint)index.Length / 3,
-    //                                                 parameters);
-    //        });
-
-    //    t.SetApartmentState(ApartmentState.MTA);
-    //    List<BXDAMesh.BXDASubMesh> subs = new List<BXDAMesh.BXDASubMesh>();
-
-    //    try
-    //    {
-    //        t.Start();
-    //        int dot = 0;
-    //        while (!t.Join(0))
-    //        {
-    //            SynthesisGUI.Instance.ExporterSetSubText("Calculating colliders" + new String('.', dot));
-    //            dot++;
-    //            if (dot > 5) dot = 0;
-    //            System.Threading.Thread.Sleep(500);
-    //        }
-    //        Console.WriteLine();
-
-    //        if (!decomposeResult)
-    //        {
-    //            throw new Exception("Couldn't calculate convex hull!");
-    //        }
-
-    //        uint hullCount = decomposer.GetNConvexHulls();
-    //        Console.WriteLine("Convex Decomposition produced " + hullCount + " hulls.");
-
-    //        for (uint i = 0; i < hullCount; i++)
-    //        {
-    //            ConvexLibraryWrapper.ConvexHull result = decomposer.GetConvexHull(i);
-    //            subs.Add(ExportMeshInternal(Array.ConvertAll<double, float>(result.m_points, (double ui) => (float)ui), result.m_nPoints,
-    //                                        Array.ConvertAll<int, uint>(result.m_triangles, (int ui) => (uint)ui), result.m_nTriangles));
-    //        }
-    //    }
-    //    finally
-    //    { }
-
-    //    if (OCL)
-    //    {
-    //        decomposer.OCLRelease(parameters);
-    //    }
-
-    //    decomposer.Cancel();
-    //    decomposer.Clean();
-    //    decomposer.Release();
-
-    //    return subs;
-    //}
-
-    private static double[] GetHullNormals(HullVertex[] HullVertices, double[] RawVertices, double[] RawNormals)
+    /// <summary>
+    /// Computes a convex hull, or convex hull set for the given meshes.
+    /// </summary>
+    /// <param name="mesh">Mesh to compute for</param>
+    /// <param name="decompose">If a set of convex hulls is required</param>
+    /// <returns>The resulting list of convex hulls.</returns>
+    public static List<BXDAMesh.BXDASubMesh> GetHull(BXDAMesh bMesh, bool decompose = false, bool OCL = false)
     {
-        List<double> Normals = new List<double>();
-
-        foreach(HullVertex vert in HullVertices)
+        int vertCount = 0;
+        int indexCount = 0;
+        foreach (BXDAMesh.BXDASubMesh mesh in bMesh.meshes)
         {
-            for(int i = 0; i < RawVertices.Length; i += 3)
+            vertCount += mesh.verts.Length;
+            foreach (BXDAMesh.BXDASurface surface in mesh.surfaces)
             {
-                if (vert.Position[0] == RawVertices[i] && vert.Position[1] == RawVertices[i + 1] && vert.Position[2] == RawVertices[i + 2])
+                //Get total number of indicies in overall mesh.
+                indexCount += surface.indicies.Length;
+            }
+        }
+        if (vertCount <= 0)
+        {
+            throw new InvalidOperationException("There isn't any mesh to operate on!");
+        }
+        float[] copy = new float[vertCount];
+        uint[] index = new uint[indexCount];
+        vertCount = 0;
+        indexCount = 0;
+        int totalChecks = 0;
+        int onePercent = Math.Max(1, (copy.Length / 3) / 100);
+        SynthesisGUI.Instance.ExporterReset();
+        foreach (BXDAMesh.BXDASubMesh mesh in bMesh.meshes)
+        {
+            int[] subIndices = new int[mesh.verts.Length / 3];
+            int addedVerts = 0;
+            for (int i = 0; i < mesh.verts.Length; i += 3)
+            {
+                totalChecks++;
+                if (totalChecks % onePercent == 0)
                 {
-                    Normals.Add(RawNormals[i]);
-                    Normals.Add(RawNormals[i + 1]);
-                    Normals.Add(RawNormals[i + 2]);
+                    //Console.Write("Cleaning " + totalChecks + "/" + (copy.Length / 3) + "  " + ((int) (totalChecks * 3 / (float) copy.Length * 10000f) / 100f) + "%");
+                    double totalProgress = ((double)totalChecks / ((double)copy.Length / 3.0)) * 100.0;
+                    SynthesisGUI.Instance.ExporterSetSubText(String.Format("Clean {1} / {2}", Math.Round(totalProgress, 2), totalChecks, copy.Length / 3));
+                    SynthesisGUI.Instance.ExporterSetProgress(totalProgress);
                 }
+                //Copy all the mesh vertices over, starting at the end of the last mesh copied.
+                for (int j = 0; j < (vertCount + addedVerts) * 3; j += 3)
+                {
+                    if (Math.Abs(mesh.verts[i] - copy[j]) < EPSILON &&
+                        Math.Abs(mesh.verts[i + 1] - copy[j + 1]) < EPSILON &&
+                        Math.Abs(mesh.verts[i + 2] - copy[j + 2]) < EPSILON)
+                    {
+                        subIndices[i / 3] = (j / 3) + 1;// Add one so we can just use the pre-zeroed memory.
+                        break;
+                    }
+                }
+                if (subIndices[i / 3] == 0)
+                {
+                    subIndices[i / 3] = vertCount + addedVerts + 1;
+                    int offset = (vertCount + addedVerts) * 3;
+                    addedVerts++;
+                    copy[offset] = (float)mesh.verts[i];
+                    copy[offset + 1] = (float)mesh.verts[i + 1];
+                    copy[offset + 2] = (float)mesh.verts[i + 2];
+                }
+                else
+                {
+                    // Which one is farther from the COM
+                    int offset = (subIndices[i / 3] - 1) * 3;
+                    float dx = (float)mesh.verts[i] - bMesh.physics.centerOfMass.x;
+                    float dy = (float)mesh.verts[i + 1] - bMesh.physics.centerOfMass.y;
+                    float dz = (float)mesh.verts[i + 2] - bMesh.physics.centerOfMass.z;
+                    float dXC = copy[offset] - bMesh.physics.centerOfMass.x;
+                    float dYC = copy[offset] - bMesh.physics.centerOfMass.y;
+                    float dZC = copy[offset] - bMesh.physics.centerOfMass.z;
+                    if ((dx * dx + dy * dy + dz * dz) > (dXC * dXC + dYC * dYC + dZC * dZC))
+                    {
+                        copy[offset] = (float)mesh.verts[i];
+                        copy[offset + 1] = (float)mesh.verts[i + 1];
+                        copy[offset + 2] = (float)mesh.verts[i + 2];
+                    }
+                }
+            }
+
+            foreach (BXDAMesh.BXDASurface surface in mesh.surfaces)
+            {
+                int addedInds = 0;
+                for (int i = 0; i < surface.indicies.Length; i += 3)
+                {
+                    if (subIndices[surface.indicies[i]] != subIndices[surface.indicies[i + 1]] &&
+                        subIndices[surface.indicies[i + 1]] != subIndices[surface.indicies[i + 2]] &&
+                        subIndices[surface.indicies[i + 2]] != subIndices[surface.indicies[i]])
+                    {
+                        index[indexCount + i] = (uint)subIndices[surface.indicies[i]] - 1;
+                        index[indexCount + i + 1] = (uint)subIndices[surface.indicies[i + 1]] - 1;
+                        index[indexCount + i + 2] = (uint)subIndices[surface.indicies[i + 2]] - 1;
+                        addedInds += 3;
+                    }
+                }
+
+                indexCount += addedInds;
+            }
+            vertCount += addedVerts;
+        }
+
+        SynthesisGUI.Instance.ExporterSetSubText("Calculating colliders");
+
+        IVHACD decomposer = new IVHACD();
+        ConvexLibraryWrapper.Parameters parameters = new ConvexLibraryWrapper.Parameters();
+        if (!decompose)
+        {
+            parameters.m_depth = 1;
+            parameters.m_concavity = 1;
+        }
+        if (OCL)
+        {
+            Console.WriteLine("Using OpenCL acceleration");
+
+            try
+            {
+                parameters.m_oclAcceleration = 1;
+                decomposer.OCLInit(parameters);
+            }
+            catch (DllNotFoundException e)
+            {
+                Console.WriteLine(e.Message);
+                OCL = false;
             }
         }
 
-        return Normals.ToArray();
-    }
+        bool decomposeResult = false;
 
-    private static double[] GetRawVerts(HullVertex[] HullVertices)
-    {
-        List<double> Vertices = new List<double>();
+        Thread t = new Thread(() =>
+            {
+                decomposeResult = decomposer.Compute(copy, 3, (uint)copy.Length / 3,
+                                                     Array.ConvertAll<uint, int>(index, (uint ui) => (int)ui), 3, (uint)index.Length / 3,
+                                                     parameters);
+            });
 
-        foreach (HullVertex Vertex in HullVertices)
-            Vertices.AddRange(Vertex.Position);
+        t.SetApartmentState(ApartmentState.MTA);
+        List<BXDAMesh.BXDASubMesh> subs = new List<BXDAMesh.BXDASubMesh>();
 
-        return Vertices.ToArray();
-    }
-
-    public static List<BXDAMesh.BXDASubMesh> GetHull(BXDAMesh bMesh)
-    {
-        List<BXDAMesh.BXDASubMesh> meshes = new List<BXDAMesh.BXDASubMesh>();
-        foreach (BXDAMesh.BXDASubMesh mesh in bMesh.meshes)
+        try
         {
-            List<HullVertex> RawVertices = new List<HullVertex>();
-            for (int i = 0; i < mesh.verts.Length; i += 3)
+            t.Start();
+            int dot = 0;
+            while (!t.Join(0))
             {
-                RawVertices.Add(new HullVertex(mesh.verts[i], mesh.verts[i + 1], mesh.verts[i + 2]));
+                SynthesisGUI.Instance.ExporterSetSubText("Calculating colliders" + new String('.', dot));
+                dot++;
+                if (dot > 5) dot = 0;
+                System.Threading.Thread.Sleep(500);
             }
-            var Hull = ConvexHull.Create(RawVertices);
-            var HullVertices = new List<HullVertex>();
-            HullVertices.AddRange(Hull.Points);
+            Console.WriteLine();
 
-            List<uint> indices = new List<uint>();
-            foreach (var face in Hull.Faces)
+            if (!decomposeResult)
             {
-                indices.Add((uint)HullVertices.IndexOf(face.Vertices[0]));
-                indices.Add((uint)HullVertices.IndexOf(face.Vertices[1]));
-                indices.Add((uint)HullVertices.IndexOf(face.Vertices[2]));
+                throw new Exception("Couldn't calculate convex hull!");
             }
-            float[] verts = Array.ConvertAll(GetRawVerts(HullVertices.ToArray()), item => (float)item);
 
-            meshes.Add(ExportMeshInternal(verts, (uint)verts.Length / 3, indices.ToArray(), ((uint)indices.Count / 3)));
-        } 
-        return meshes;
+            uint hullCount = decomposer.GetNConvexHulls();
+            Console.WriteLine("Convex Decomposition produced " + hullCount + " hulls.");
+
+            for (uint i = 0; i < hullCount; i++)
+            {
+                ConvexLibraryWrapper.ConvexHull result = decomposer.GetConvexHull(i);
+                subs.Add(ExportMeshInternal(Array.ConvertAll<double, float>(result.m_points, (double ui) => (float)ui), result.m_nPoints,
+                                            Array.ConvertAll<int, uint>(result.m_triangles, (int ui) => (uint)ui), result.m_nTriangles));
+            }
+        }
+        finally
+        { }
+
+        if (OCL)
+        {
+            decomposer.OCLRelease(parameters);
+        }
+
+        decomposer.Cancel();
+        decomposer.Clean();
+        decomposer.Release();
+
+        return subs;
     }
 }

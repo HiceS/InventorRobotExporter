@@ -31,24 +31,21 @@
             // 
             // buttonAdd
             // 
-            this.buttonAdd.Location = new System.Drawing.Point(2, 2);
-            this.buttonAdd.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.buttonAdd.Location = new System.Drawing.Point(3, 3);
             this.buttonAdd.Name = "buttonAdd";
-            this.buttonAdd.Size = new System.Drawing.Size(132, 26);
+            this.buttonAdd.Size = new System.Drawing.Size(176, 32);
             this.buttonAdd.TabIndex = 1;
             this.buttonAdd.Text = "Add from Inventor";
             this.buttonAdd.UseVisualStyleBackColor = true;
-            this.buttonAdd.Visible = false;
-            this.buttonAdd.Click += new System.EventHandler(this.ButtonAdd_Click);
+            this.buttonAdd.Click += new System.EventHandler(this.buttonAdd_Click);
             // 
             // InventorChooserPane
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Controls.Add(this.buttonAdd);
-            this.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.Name = "InventorChooserPane";
-            this.Size = new System.Drawing.Size(576, 338);
+            this.Size = new System.Drawing.Size(768, 416);
             this.ResumeLayout(false);
 
     }

@@ -1,14 +1,7 @@
 ﻿using Inventor;
-using System.IO;
-using System;
-using System.Diagnostics;
-using System.Windows.Forms;
-
 
 public class Utilities
 {
-    public static string VIEWER_PATH = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments) + @"\RobotViewer\RobotViewer.exe";
-    
     public static Vector ToInventorVector(BXDVector3 v)
     {
         if (InventorManager.Instance == null) return null;
@@ -46,18 +39,5 @@ public class Utilities
         double dy = b.MaxPoint.Y - b.MinPoint.Y;
         double dz = b.MaxPoint.Z - b.MinPoint.Z;
         return dx * dy * dz;
-    }
-}
-
-namespace LegacyInterchange
-{
-    public static class LegacyEvents
-    {
-        public static event Action RobotModified;
-        
-        public static void OnRobotModified()
-        {
-            RobotModified?.Invoke();
-        }
     }
 }
