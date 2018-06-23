@@ -10,5 +10,5 @@ matrix:
     - os: windows
       solution: ./BxDRobotExporter/BxDRobotExporter.sln
       script:
-      - msbuild ./BxDRobotExporter/BxDRobotExporter.sln
+      - xbuild ./BxDRobotExporter/BxDRobotExporter.sln
 
